@@ -5,6 +5,7 @@ import { z } from "zod";
 import config from "./config";
 import { AISDKProvider } from "./providers/ai-sdk";
 import { SAPAIProvider } from "./providers/sapaicore";
+import { info } from "@actions/core";
 
 export enum AIProviderType {
   AI_SDK = "ai-sdk",
@@ -299,6 +300,7 @@ export async function runPrompt({
   const providerModels = LLM_MODELS[providerType];
   let modelConfig = providerModels.find((m) => m.name === config.llmModel);
 
+  info(`Using LLM provider: ${providerType}, base URL: ${config.llmBaseUrl}, model: ${modelConfig?.name}`);
   // When using a custom base URL, skip whitelist validation and use OpenAI SDK
   if (!modelConfig && config.llmBaseUrl && providerType === AIProviderType.AI_SDK) {
     modelConfig = {
