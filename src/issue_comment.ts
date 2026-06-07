@@ -54,7 +54,8 @@ export async function handleIssueComments() {
 
   // Fetch comment thread
   const commentThread = await getCommentThread(octokit, {
-    ...context.repo,
+    owner,
+    repo,
     pull_number: issue.number,
     comment_id: comment.id,
   });
@@ -71,7 +72,8 @@ export async function handleIssueComments() {
 
   // Fetch diffs for all files
   const { data: files } = await octokit.rest.pulls.listFiles({
-    ...context.repo,
+    owner: owner,
+    repo: repo,
     pull_number: issue.number,
   });
   let fileDiffs = files.map((file) => parseFileDiff(file, []));
@@ -101,7 +103,8 @@ export async function handleIssueComments() {
 
   info("action requested, submitting response");
   await octokit.rest.pulls.createReviewComment({
-    ...context.repo,
+    owner: owner,
+    repo: repo,
     pull_number: issue.number,
     commit_id: pullRequest.data.head.sha,
     path: commentThread.file,
