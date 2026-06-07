@@ -10,6 +10,7 @@ import {
 } from "./comments";
 import { parseFileDiff } from "./diff";
 import { runReviewCommentPrompt } from "./prompts";
+import { doPullRequestReview } from "./pull_request_reviewer";
 
 export async function handleIssueComments() {
   const context = await loadContext();
@@ -41,74 +42,69 @@ export async function handleIssueComments() {
     return;
   }
 
-  const octokit = initOctokit(config.githubToken, config.githubApiUrl);
+  await doPullRequestReview(context, issue.number);
 
-  const owner = repository.owner.login;
-  const repo = repository.name;
+  // const octokit = initOctokit(config.githubToken, config.githubApiUrl);
 
-  const pullRequest = await octokit.rest.pulls.get({
-    owner: owner,
-    repo: repo,
-    pull_number: issue.number,
-  })
+  // const pullRequest = await octokit.rest.pulls.get({
+  //   ...context.repo,
+  //   pull_number: issue.number,
+  // })
 
-  // Fetch comment thread
-  const commentThread = await getCommentThread(octokit, {
-    owner,
-    repo,
-    pull_number: issue.number,
-    comment_id: comment.id,
-  });
-  if (!commentThread) {
-    warning("comment thread not found");
-    return;
-  }
+  // // Fetch comment thread
+  // const commentThread = await getCommentThread(octokit, {
+  //   ...context.repo,
+  //   pull_number: issue.number,
+  //   comment_id: comment.id,
+  // });
+  // if (!commentThread) {
+  //   warning("comment thread not found");
+  //   return;
+  // }
 
-  // Check if the comment thread is relevant
-  if (!isThreadRelevant(commentThread)) {
-    info("comment thread is not relevant, ignoring it");
-    return;
-  }
+  // // Check if the comment thread is relevant
+  // if (!isThreadRelevant(commentThread)) {
+  //   info("comment thread is not relevant, ignoring it");
+  //   return;
+  // }
 
-  // Fetch diffs for all files
-  const { data: files } = await octokit.rest.pulls.listFiles({
-    owner: owner,
-    repo: repo,
-    pull_number: issue.number,
-  });
-  let fileDiffs = files.map((file) => parseFileDiff(file, []));
+  // // Fetch diffs for all files
+  // const { data: files } = await octokit.rest.pulls.listFiles({
+  //   ...context.repo,
+  //   pull_number: issue.number,
+  // });
+  // let fileDiffs = files.map((file) => parseFileDiff(file, []));
 
-  // Find the file that the comment is in
-  const commentFileDiff = fileDiffs.find(
-    (fileDiff) => fileDiff.filename === commentThread.file
-  );
-  if (!commentFileDiff) {
-    warning("comment is not in any file that was changed in this PR");
-    return;
-  }
+  // // Find the file that the comment is in
+  // const commentFileDiff = fileDiffs.find(
+  //   (fileDiff) => fileDiff.filename === commentThread.file
+  // );
+  // if (!commentFileDiff) {
+  //   warning("comment is not in any file that was changed in this PR");
+  //   return;
+  // }
 
-  // Run prompt
-  const response = await runReviewCommentPrompt({
-    commentThread,
-    commentFileDiff,
-  });
+  // // Run prompt
+  // const response = await runReviewCommentPrompt({
+  //   commentThread,
+  //   commentFileDiff,
+  // });
 
-  // Submit response if action requested
-  if (!response.action_requested || !response.response_comment.length) {
-    info(
-      "comment doesn't seem to require any action, so not submitting a response"
-    );
-    return;
-  }
+  // // Submit response if action requested
+  // if (!response.action_requested || !response.response_comment.length) {
+  //   info(
+  //     "comment doesn't seem to require any action, so not submitting a response"
+  //   );
+  //   return;
+  // }
 
-  info("action requested, submitting response");
-  await octokit.rest.pulls.createReviewComment({
-    owner: owner,
-    repo: repo,
-    pull_number: issue.number,
-    commit_id: pullRequest.data.head.sha,
-    path: commentThread.file,
-    body: buildComment(response.response_comment),
-    in_reply_to: commentThread.comments[0].id,
-  });
+  // info("action requested, submitting response");
+  // await octokit.rest.pulls.createReviewComment({
+  //   ...context.repo,
+  //   pull_number: issue.number,
+  //   commit_id: pullRequest.data.head.sha,
+  //   path: commentThread.file,
+  //   body: buildComment(response.response_comment),
+  //   in_reply_to: commentThread.comments[0].id,
+  // });
 }
