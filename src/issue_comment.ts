@@ -18,6 +18,7 @@ export async function handleIssueComments() {
     return;
   }
 
+  info(`context payload: ${JSON.stringify(context.payload)}`);
   const { comment, pull_request } = context.payload;
   if (!comment) {
     warning("`comment` is missing from payload");
