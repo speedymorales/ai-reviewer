@@ -1,4 +1,4 @@
-import { getInput, getMultilineInput } from "@actions/core";
+import { getInput, getMultilineInput, info } from "@actions/core";
 import { AIProviderType } from "./ai";
 
 export class Config {
@@ -24,6 +24,7 @@ export class Config {
     }
 
     this.llmModel = process.env.LLM_MODEL || getInput("llm_model");
+    info(`LLM_MODEL set to: ${this.llmModel}`);
     if (!this.llmModel?.length) {
       throw new Error("LLM_MODEL is not set");
     }
