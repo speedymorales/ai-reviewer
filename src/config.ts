@@ -46,6 +46,8 @@ export class Config {
     const baseUrlFromInput = getInput("llm_base_url");
     this.llmBaseUrl = baseUrlFromEnv || baseUrlFromInput || undefined;
 
+    info(`Environment variable LLM_BASE_URL: ${baseUrlFromEnv}`);
+    info(`Input LLM_BASE_URL: ${baseUrlFromInput}`);
     info(`LLM_BASE_URL set to: ${this.llmBaseUrl}`);
 
     // SAP AI Core configuration
