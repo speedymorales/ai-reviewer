@@ -46,6 +46,8 @@ export class Config {
     const baseUrlFromInput = getInput("llm_base_url");
     this.llmBaseUrl = baseUrlFromEnv || baseUrlFromInput || undefined;
 
+    info(`LLM_BASE_URL set to: ${this.llmBaseUrl}`);
+
     // SAP AI Core configuration
     this.sapAiCoreClientId = process.env.SAP_AI_CORE_CLIENT_ID;
     this.sapAiCoreClientSecret = process.env.SAP_AI_CORE_CLIENT_SECRET;

@@ -285,6 +285,7 @@ export async function runPrompt({
   systemPrompt?: string;
   schema: z.ZodObject<any, any>;
 }) {
+  info(`Config output: ${JSON.stringify(config)}`);
   if (
     !Object.values(AIProviderType).includes(
       config.llmProvider as AIProviderType
