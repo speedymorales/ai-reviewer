@@ -1,6 +1,7 @@
-import { warning, setFailed } from "@actions/core";
+import { warning, setFailed, info } from "@actions/core";
 import { handlePullRequest } from "./pull_request";
 import { handlePullRequestComment } from "./pull_request_comment";
+import { handleIssueComments } from "./issue_comment";
 
 async function main(): Promise<void> {
   try {
@@ -12,8 +13,11 @@ async function main(): Promise<void> {
       case "pull_request_review_comment":
         handlePullRequestComment();
         break;
+      case "issue_comment":
+        handleIssueComments();
+        break;
       default:
-        console.debug(`Unsupported event: ${process.env.GITHUB_EVENT_NAME}`);
+        info(`Unsupported event: ${process.env.GITHUB_EVENT_NAME}`);
         warning("Skipped: unsupported github event");
     }
   } catch (error) {
