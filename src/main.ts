@@ -13,6 +13,7 @@ async function main(): Promise<void> {
         handlePullRequestComment();
         break;
       default:
+        console.log(`Unsupported event: ${process.env.GITHUB_EVENT_NAME}`);
         warning("Skipped: unsupported github event");
     }
   } catch (error) {
