@@ -19,7 +19,7 @@ export async function handleIssueComments() {
   }
 
   info(`context payload: ${JSON.stringify(context.payload)}`);
-  const { comment, pull_request } = context.payload;
+  const { comment, issue, repository } = context.payload;
   if (!comment) {
     warning("`comment` is missing from payload");
     return;
@@ -28,8 +28,12 @@ export async function handleIssueComments() {
     warning("only consider newly created comments");
     return;
   }
-  if (!pull_request) {
-    warning("`pull_request` is missing from payload");
+  if (!issue) {
+    warning("`issue` is missing from payload");
+    return;
+  }
+  if (!repository) {
+    warning("`repository` is missing from payload");
     return;
   }
   if (isOwnComment(comment.body)) {
@@ -39,10 +43,19 @@ export async function handleIssueComments() {
 
   const octokit = initOctokit(config.githubToken, config.githubApiUrl);
 
+  const owner = repository.owner.login;
+  const repo = repository.name;
+
+  const pullRequest = await octokit.rest.pulls.get({
+    owner: owner,
+    repo: repo,
+    pull_number: issue.number,
+  })
+
   // Fetch comment thread
   const commentThread = await getCommentThread(octokit, {
     ...context.repo,
-    pull_number: pull_request.number,
+    pull_number: issue.number,
     comment_id: comment.id,
   });
   if (!commentThread) {
@@ -59,7 +72,7 @@ export async function handleIssueComments() {
   // Fetch diffs for all files
   const { data: files } = await octokit.rest.pulls.listFiles({
     ...context.repo,
-    pull_number: pull_request.number,
+    pull_number: issue.number,
   });
   let fileDiffs = files.map((file) => parseFileDiff(file, []));
 
@@ -89,8 +102,8 @@ export async function handleIssueComments() {
   info("action requested, submitting response");
   await octokit.rest.pulls.createReviewComment({
     ...context.repo,
-    pull_number: pull_request.number,
-    commit_id: pull_request.head.sha,
+    pull_number: issue.number,
+    commit_id: pullRequest.data.head.sha,
     path: commentThread.file,
     body: buildComment(response.response_comment),
     in_reply_to: commentThread.comments[0].id,
