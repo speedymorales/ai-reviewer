@@ -1,45 +1,89 @@
-// Mock the entire @octokit modules
-jest.mock('@octokit/action', () => {
-  const MockOctokit = jest.fn().mockImplementation(() => ({
-    rest: {
-      repos: {},
-      pulls: {},
-      issues: {}
-    }
-  }));
-  // Add the static plugin method
-  const mockPlugin = jest.fn().mockReturnValue(MockOctokit);
-  Object.defineProperty(MockOctokit, 'plugin', {
-    value: mockPlugin
-  });
+import assert from "node:assert/strict";
+import { before, beforeEach, describe, mock, test } from "node:test";
 
-  return {
-    Octokit: MockOctokit
-  };
+const mockWarning = mock.fn();
+const constructOctokit = mock.fn((options: Record<string, unknown>) => ({
+  options,
+  rest: {
+    repos: {},
+    pulls: {},
+    issues: {},
+  },
+}));
+const mockPlugin = mock.fn(() => MockOctokit as any);
+const retry = {};
+const throttling = {};
+
+function MockOctokit(this: unknown, options: Record<string, unknown>) {
+  return constructOctokit(options);
+}
+
+Object.defineProperty(MockOctokit, "plugin", {
+  value: mockPlugin,
 });
 
-jest.mock('@octokit/plugin-retry', () => ({
-  retry: jest.fn()
-}));
+let initOctokit: typeof import("../octokit").initOctokit;
 
-jest.mock('@octokit/plugin-throttling', () => ({
-  throttling: jest.fn()
-}));
+describe("Octokit", () => {
+  before(async () => {
+    await mock.module("@actions/core", {
+      exports: {
+        warning: (...args: any[]) => mockWarning(...args),
+      },
+    });
 
-import { initOctokit } from '../octokit';
+    await mock.module("@octokit/action", {
+      exports: {
+        Octokit: MockOctokit as any,
+      },
+    });
 
-describe('Octokit', () => {
-  test('initializes with a token', () => {
-    const octokit = initOctokit('test-token');
-    expect(octokit).toBeDefined();
+    await mock.module("@octokit/plugin-retry", {
+      exports: {
+        retry,
+      },
+    });
+
+    await mock.module("@octokit/plugin-throttling", {
+      exports: {
+        throttling,
+      },
+    });
+
+    ({ initOctokit } = await import("../octokit.ts"));
+  });
+  beforeEach(() => {
+    constructOctokit.mock.resetCalls();
+    mockWarning.mock.resetCalls();
   });
 
-  test('throws when no token is provided', () => {
-    expect(() => initOctokit()).toThrow('GitHub token is required but was not provided');
+  test("initializes with a token", () => {
+    const octokit = initOctokit("test-token");
+
+    assert.ok(octokit);
+    assert.equal(constructOctokit.mock.callCount(), 1);
+    assert.equal(constructOctokit.mock.calls[0].arguments[0].auth, "test-token");
+    assert.equal(constructOctokit.mock.calls[0].arguments[0].baseUrl, undefined);
   });
 
-  test('initializes with a token and baseUrl', () => {
-    const octokit = initOctokit('test-token', 'https://github.example.com/api/v3');
-    expect(octokit).toBeDefined();
+  test("throws when no token is provided", () => {
+    assert.throws(
+      () => initOctokit(),
+      /GitHub token is required but was not provided/
+    );
+  });
+
+  test("initializes with a token and baseUrl", () => {
+    const octokit = initOctokit(
+      "test-token",
+      "https://github.example.com/api/v3"
+    );
+
+    assert.ok(octokit);
+    assert.equal(constructOctokit.mock.callCount(), 1);
+    assert.equal(
+      constructOctokit.mock.calls[0].arguments[0].baseUrl,
+      "https://github.example.com/api/v3"
+    );
   });
 });

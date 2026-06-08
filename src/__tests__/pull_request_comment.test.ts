@@ -1,179 +1,201 @@
-// Add these mock imports at the top of the file
-jest.mock('@octokit/action');
-jest.mock('@octokit/plugin-retry');
-jest.mock('@octokit/plugin-throttling');
+import assert from "node:assert/strict";
+import { before, beforeEach, describe, mock, test } from "node:test";
 
-import { handlePullRequestComment } from '../pull_request_comment';
-import { loadContext } from '../context';
-import { initOctokit } from '../octokit';
-import { getCommentThread, isOwnComment, isThreadRelevant } from '../comments';
-import { runReviewCommentPrompt } from '../prompts';
-import config from '../config';
+const mockInfo = mock.fn();
+const mockWarning = mock.fn();
+const mockLoadContext = mock.fn();
+const mockInitOctokit = mock.fn();
+const mockBuildComment = mock.fn((comment: string) => `formatted:${comment}`);
+const mockGetCommentThread = mock.fn();
+const mockIsOwnComment = mock.fn(() => false);
+const mockIsThreadRelevant = mock.fn(() => true);
+const mockRunReviewCommentPrompt = mock.fn();
+const mockListFiles = mock.fn();
+const mockCreateReviewComment = mock.fn();
 
-// Mock dependencies
-jest.mock('../context');
-jest.mock('../octokit');
-jest.mock('../comments');
-jest.mock('../prompts');
-jest.mock('../config', () => ({
-  __esModule: true,
-  default: {
-    githubToken: 'mock-token',
-    llmApiKey: 'mock-api-key',
-    llmModel: 'mock-model',
-    styleGuideRules: '',
-    githubApiUrl: 'https://api.github.com',
-    githubServerUrl: 'https://github.com',
-    loadInputs: jest.fn()
-  }
-}));
-jest.mock('@actions/core', () => ({
-  info: jest.fn(),
-  warning: jest.fn()
-}));
+const mockOctokit = {
+  rest: {
+    pulls: {
+      listFiles: (...args: any[]) => mockListFiles(...args),
+      createReviewComment: (...args: any[]) => mockCreateReviewComment(...args),
+    },
+  },
+};
 
-describe('Pull Request Comment Handler', () => {
+let handlePullRequestComment: typeof import("../pull_request_comment").handlePullRequestComment;
+
+describe("Pull Request Comment Handler", () => {
+  before(async () => {
+    await mock.module("@actions/core", {
+      exports: {
+        info: (...args: any[]) => mockInfo(...args),
+        warning: (...args: any[]) => mockWarning(...args),
+      },
+    });
+
+    await mock.module("../config.ts", {
+      exports: {
+        default: {
+          githubToken: "mock-token",
+          githubApiUrl: "https://api.github.com",
+          githubServerUrl: "https://github.com",
+          loadInputs: () => undefined,
+        },
+      },
+    });
+
+    await mock.module("../context.ts", {
+      exports: {
+        loadContext: (...args: any[]) => mockLoadContext(...args),
+      },
+    });
+
+    await mock.module("../octokit.ts", {
+      exports: {
+        initOctokit: (...args: any[]) => mockInitOctokit(...args),
+      },
+    });
+
+    await mock.module("../comments.ts", {
+      exports: {
+        buildComment: (...args: any[]) => mockBuildComment(...args),
+        getCommentThread: (...args: any[]) => mockGetCommentThread(...args),
+        isOwnComment: (...args: any[]) => mockIsOwnComment(...args),
+        isThreadRelevant: (...args: any[]) => mockIsThreadRelevant(...args),
+      },
+    });
+
+    await mock.module("../prompts.ts", {
+      exports: {
+        runReviewCommentPrompt: (...args: any[]) => mockRunReviewCommentPrompt(...args),
+      },
+    });
+
+    ({ handlePullRequestComment } = await import("../pull_request_comment.ts"));
+  });
   beforeEach(() => {
-    jest.resetAllMocks();
-    
-    // Mock context
-    (loadContext as jest.Mock).mockResolvedValue({
-      eventName: 'pull_request_review_comment',
-      repo: { owner: 'test-owner', repo: 'test-repo' },
+    mockInfo.mock.resetCalls();
+    mockWarning.mock.resetCalls();
+    mockLoadContext.mock.resetCalls();
+    mockLoadContext.mock.mockImplementation(async () => ({
+      eventName: "pull_request_review_comment",
+      repo: { owner: "test-owner", repo: "test-repo" },
       payload: {
-        action: 'created',
+        action: "created",
         comment: {
           id: 123,
-          body: 'Test comment',
-          user: { login: 'test-user' }
+          body: "Test comment",
+          user: { login: "test-user" },
         },
         pull_request: {
           number: 456,
-          head: { sha: 'head-sha' }
-        }
-      }
-    });
-    
-    // Mock octokit with correct structure including 'rest'
-    const mockOctokit = {
-      rest: {
-        pulls: {
-          listFiles: jest.fn().mockResolvedValue({
-            data: [{ filename: 'test.ts', status: 'modified', patch: '@@ -1,1 +1,2 @@\n test\n+added' }]
-          }),
-          createReviewComment: jest.fn().mockResolvedValue({})
-        }
-      }
-    };
-    (initOctokit as jest.Mock).mockReturnValue(mockOctokit);
-    
-    // Mock comment thread
-    (getCommentThread as jest.Mock).mockResolvedValue({
-      file: 'test.ts',
-      comments: [{
-        id: 123,
-        body: 'Test comment',
-        user: { login: 'test-user' },
-        path: 'test.ts',
-        line: 2,
-        diff_hunk: '@@ -1,1 +1,2 @@\n test\n+added'
-      }]
-    });
-    
-    (isOwnComment as jest.Mock).mockReturnValue(false);
-    (isThreadRelevant as jest.Mock).mockReturnValue(true);
-    
-    // Mock prompt response
-    (runReviewCommentPrompt as jest.Mock).mockResolvedValue({
-      response_comment: 'AI response to comment',
-      action_requested: true
-    });
+          head: { sha: "head-sha" },
+        },
+      },
+    }));
+    mockInitOctokit.mock.resetCalls();
+    mockInitOctokit.mock.mockImplementation(() => mockOctokit);
+    mockBuildComment.mock.resetCalls();
+    mockBuildComment.mock.mockImplementation((comment: string) => `formatted:${comment}`);
+    mockGetCommentThread.mock.resetCalls();
+    mockGetCommentThread.mock.mockImplementation(async () => ({
+      file: "test.ts",
+      comments: [
+        {
+          id: 123,
+          body: "Test comment",
+          user: { login: "test-user" },
+          path: "test.ts",
+          line: 2,
+          diff_hunk: "@@ -1,1 +1,2 @@\n test\n+added",
+        },
+      ],
+    }));
+    mockIsOwnComment.mock.resetCalls();
+    mockIsOwnComment.mock.mockImplementation(() => false);
+    mockIsThreadRelevant.mock.resetCalls();
+    mockIsThreadRelevant.mock.mockImplementation(() => true);
+    mockRunReviewCommentPrompt.mock.resetCalls();
+    mockRunReviewCommentPrompt.mock.mockImplementation(async () => ({
+      response_comment: "AI response to comment",
+      action_requested: true,
+    }));
+    mockListFiles.mock.resetCalls();
+    mockListFiles.mock.mockImplementation(async () => ({
+      data: [
+        {
+          filename: "test.ts",
+          status: "modified",
+          patch: "@@ -1,1 +1,2 @@\n test\n+added",
+        },
+      ],
+    }));
+    mockCreateReviewComment.mock.resetCalls();
+    mockCreateReviewComment.mock.mockImplementation(async () => ({}));
   });
-  
-  test('handles pull request comment event correctly', async () => {
+
+  test("handles pull request comment event correctly", async () => {
     await handlePullRequestComment();
-    
-    // Verify context was loaded
-    expect(loadContext).toHaveBeenCalled();
-    
-    // Verify octokit was initialized
-    expect(initOctokit).toHaveBeenCalled();
-    
-    // Verify comment thread was fetched
-    expect(getCommentThread).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({
-        owner: 'test-owner',
-        repo: 'test-repo',
-        pull_number: 456,
-        comment_id: 123
-      })
-    );
-    
-    // Get the mock octokit instance
-    const mockOctokit = (initOctokit as jest.Mock).mock.results[0].value;
-    
-    // Verify that listFiles is called with the correct parameters
-    expect(mockOctokit.rest.pulls.listFiles).toHaveBeenCalledWith({
-      owner: 'test-owner',
-      repo: 'test-repo',
-      pull_number: 456
+
+    assert.equal(mockLoadContext.mock.callCount(), 1);
+    assert.equal(mockInitOctokit.mock.callCount(), 1);
+    assert.equal(mockGetCommentThread.mock.callCount(), 1);
+    assert.equal(mockGetCommentThread.mock.calls[0].arguments[0], mockOctokit);
+    assert.deepEqual(mockGetCommentThread.mock.calls[0].arguments[1], {
+      owner: "test-owner",
+      repo: "test-repo",
+      pull_number: 456,
+      comment_id: 123,
     });
-    
-    // Verify prompt was called
-    expect(runReviewCommentPrompt).toHaveBeenCalled();
-    
-    // Verify response was posted
-    expect(mockOctokit.rest.pulls.createReviewComment).toHaveBeenCalledWith(
-      expect.objectContaining({
-        owner: 'test-owner',
-        repo: 'test-repo',
-        pull_number: 456,
-        path: 'test.ts',
-        in_reply_to: 123
-      })
-    );
-  });
-  
-  test('ignores own comments', async () => {
-    (isOwnComment as jest.Mock).mockReturnValue(true);
-    
-    await handlePullRequestComment();
-    
-    // Verify context was loaded
-    expect(loadContext).toHaveBeenCalled();
-    
-    // Verify no further processing happened
-    expect(getCommentThread).not.toHaveBeenCalled();
-    expect(runReviewCommentPrompt).not.toHaveBeenCalled();
-  });
-  
-  test('ignores irrelevant comment threads', async () => {
-    (isThreadRelevant as jest.Mock).mockReturnValue(false);
-    
-    await handlePullRequestComment();
-    
-    // Verify context was loaded
-    expect(loadContext).toHaveBeenCalled();
-    expect(getCommentThread).toHaveBeenCalled();
-    
-    // Verify no further processing happened
-    expect(runReviewCommentPrompt).not.toHaveBeenCalled();
-  });
-  
-  test('skips response when no action requested', async () => {
-    (runReviewCommentPrompt as jest.Mock).mockResolvedValue({
-      response_comment: 'AI response to comment',
-      action_requested: false
+    assert.deepEqual(mockListFiles.mock.calls[0].arguments[0], {
+      owner: "test-owner",
+      repo: "test-repo",
+      pull_number: 456,
     });
-    
-    await handlePullRequestComment();
-    
-    // Verify prompt was called
-    expect(runReviewCommentPrompt).toHaveBeenCalled();
-    
-    // Verify no response was posted
-    const mockOctokit = (initOctokit as jest.Mock).mock.results[0].value;
-    expect(mockOctokit.rest.pulls.createReviewComment).not.toHaveBeenCalled();
+    assert.equal(mockRunReviewCommentPrompt.mock.callCount(), 1);
+    assert.equal(mockCreateReviewComment.mock.callCount(), 1);
+    assert.deepEqual(mockCreateReviewComment.mock.calls[0].arguments[0], {
+      owner: "test-owner",
+      repo: "test-repo",
+      pull_number: 456,
+      commit_id: "head-sha",
+      path: "test.ts",
+      body: "formatted:AI response to comment",
+      in_reply_to: 123,
+    });
   });
-}); 
+
+  test("ignores own comments", async () => {
+    mockIsOwnComment.mock.mockImplementation(() => true);
+
+    await handlePullRequestComment();
+
+    assert.equal(mockLoadContext.mock.callCount(), 1);
+    assert.equal(mockInitOctokit.mock.callCount(), 0);
+    assert.equal(mockGetCommentThread.mock.callCount(), 0);
+    assert.equal(mockRunReviewCommentPrompt.mock.callCount(), 0);
+  });
+
+  test("ignores irrelevant comment threads", async () => {
+    mockIsThreadRelevant.mock.mockImplementation(() => false);
+
+    await handlePullRequestComment();
+
+    assert.equal(mockLoadContext.mock.callCount(), 1);
+    assert.equal(mockGetCommentThread.mock.callCount(), 1);
+    assert.equal(mockListFiles.mock.callCount(), 0);
+    assert.equal(mockRunReviewCommentPrompt.mock.callCount(), 0);
+  });
+
+  test("skips response when no action requested", async () => {
+    mockRunReviewCommentPrompt.mock.mockImplementation(async () => ({
+      response_comment: "AI response to comment",
+      action_requested: false,
+    }));
+
+    await handlePullRequestComment();
+
+    assert.equal(mockRunReviewCommentPrompt.mock.callCount(), 1);
+    assert.equal(mockCreateReviewComment.mock.callCount(), 0);
+  });
+});

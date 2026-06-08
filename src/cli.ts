@@ -31,7 +31,7 @@ function resolveGitHubToken(): string {
       process.env.GITHUB_TOKEN = token;
       return token;
     }
-  } catch (error) {
+  } catch {
     // gh CLI not available or not authenticated
   }
   
@@ -98,7 +98,7 @@ async function reviewPR(
     (process.stdout.write as any) = (str: any, ...args: any[]) => {
       try { 
         chunks.push(typeof str === 'string' ? str : String(str)); 
-      } catch (error) {
+      } catch {
         // Ignore errors
       }
       return o1(str, ...args);
@@ -107,7 +107,7 @@ async function reviewPR(
     (process.stderr.write as any) = (str: any, ...args: any[]) => {
       try { 
         chunks.push(typeof str === 'string' ? str : String(str)); 
-      } catch (error) {
+      } catch {
         // Ignore errors
       }
       return o2(str, ...args);
@@ -208,4 +208,3 @@ if (require.main === module) {
     process.exit(1); 
   });
 }
-

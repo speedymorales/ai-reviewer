@@ -39,7 +39,7 @@ export async function runSummaryPrompt(
 IMPORTANT: Do not make assumptions about the code outside the diff. Do not assume variable could be optional if you don't see the type declaration. Do not suggest null checks unless you are sure this could lead to a runtime error.
 \n`;
 
-  let userPrompt = `
+  const userPrompt = `
 Summarize the following PR:
 
 <Original PR Title>${pr.prTitle}</Original PR Title>
@@ -134,7 +134,7 @@ export async function runReviewPrompt(
 ): Promise<PullRequestReview> {
 
 
-  let systemPrompt = `
+  const systemPrompt = `
 <IMPORTANT INSTRUCTIONS>
 You are an experienced senior software engineer tasked with reviewing a Git Pull Request (PR). Your goal is to provide comments to improve code quality, catch typos, potential bugs or security issues, and provide meaningful code suggestions when applicable. You should not make comments about adding comments, about code formatting, about code style or give implementation suggestions.
     
@@ -215,7 +215,7 @@ ${config.styleGuideRules}`
 `;
 
 
-  let userPrompt = `
+  const userPrompt = `
 <PR title>
 ${pr.prTitle}
 </PR title>
@@ -299,7 +299,7 @@ ${pr.files.map((file) => generateFileCodeDiff(file)).join("\n\n")}
       ),
   });
 
-  let schema = z.object({
+  const schema = z.object({
     review: reviewSchema.describe("The full review of the PR"),
     comments: z
       .array(commentSchema)
@@ -329,7 +329,7 @@ export async function runReviewCommentPrompt({
   commentThread,
   commentFileDiff,
 }: ReviewCommentPrompt): Promise<ReviewCommentResponse> {
-  let systemPrompt = `You are a helpful senior software engineer that reviews comments on Git Pull Requests (PRs). Your task is to provide a response to a comment on a PR review. The comment might be part of a longer comment thread, so make sure to respond to the specific comment and not the whole thread.
+  const systemPrompt = `You are a helpful senior software engineer that reviews comments on Git Pull Requests (PRs). Your task is to provide a response to a comment on a PR review. The comment might be part of a longer comment thread, so make sure to respond to the specific comment and not the whole thread.
 
 The comment thread is specific to a line or multiple lines of code in a specific file. Keep that in mind when writing your response, but do not assume the code is complete or correct. Also, the comment might request you to suggest some changes or improvements outside the code snippet, so judge accordingly.
 
@@ -345,7 +345,7 @@ IMPORTANT: Do not respond with generic comments like "Thanks for the PR!" or "LG
   const endLine = commentThread.comments[0].line;
 
 
-  let userPrompt = `
+  const userPrompt = `
 Below you'll see the full comment thread, but you should focus specifically on the last comment.
 <Comment Thread>
 ${commentThread.comments

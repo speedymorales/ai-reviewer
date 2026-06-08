@@ -1,20 +1,5 @@
 import { info, warning } from "@actions/core";
-import config from "./config";
-import { initOctokit } from "./octokit";
 import { loadContext } from "./context";
-import { runSummaryPrompt, AIComment, runReviewPrompt } from "./prompts";
-import {
-  buildLoadingMessage,
-  buildReviewSummary,
-  buildOverviewMessage,
-  OVERVIEW_MESSAGE_SIGNATURE,
-  PAYLOAD_TAG_CLOSE,
-  PAYLOAD_TAG_OPEN,
-} from "./messages";
-import { FileDiff, parseFileDiff } from "./diff";
-import { Octokit } from "@octokit/action";
-import { Context } from "@actions/github/lib/context";
-import { buildComment, listPullRequestCommentThreads } from "./comments";
 import { doPullRequestReview } from "./pull_request_reviewer";
 
 // const IS_DRY_RUN = process.env.DRY_RUN === "1" || process.env.DRY_RUN === "true";
@@ -40,7 +25,7 @@ export async function handlePullRequest() {
   }
 
   await doPullRequestReview(context, pull_request.number);
-  
+
   // const octokit = initOctokit(config.githubToken, config.githubApiUrl);
 
   // // Get commit messages

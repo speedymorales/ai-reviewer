@@ -105,7 +105,9 @@ export class SAPAIProvider implements AIProvider {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error(`Error fetching deployments: ${errorMessage}`);
-      throw new Error(`Failed to fetch deployments: ${errorMessage}`);
+      throw new Error(`Failed to fetch deployments: ${errorMessage}`, {
+        cause: error,
+      });
     }
   }
 
@@ -259,7 +261,9 @@ export class SAPAIProvider implements AIProvider {
       // Validate against schema
       return schema.parse(parsedResult);
     } catch (error) {
-      throw new Error(`Failed to parse or validate response: ${error}`);
+      throw new Error(`Failed to parse or validate response: ${error}`, {
+        cause: error,
+      });
     }
   }
 }

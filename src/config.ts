@@ -104,33 +104,7 @@ export class Config {
   }
 }
 
-// For testing, we'll modify how the config instance is created
-// This prevents the automatic loading when the module is imported
-let configInstance: Config | null = null;
+const config = new Config();
+config.loadInputs();
 
-// If not in test environment, create and configure the instance
-if (process.env.NODE_ENV !== "test") {
-  configInstance = new Config();
-  configInstance.loadInputs();
-}
-
-// Export the instance or a function to create one for tests
-export default process.env.NODE_ENV === "test"
-  ? {
-      // Default values for tests
-      githubToken: "mock-token",
-      llmApiKey: "mock-api-key",
-      llmModel: "mock-model",
-      llmProvider: "mock-provider",
-      llmBaseUrl: undefined,
-      styleGuideRules: "",
-      sapAiCoreClientId: "mock-client-id",
-      sapAiCoreClientSecret: "mock-client-secret",
-      sapAiCoreTokenUrl: "mock-token-url",
-      sapAiCoreBaseUrl: "mock-base-url",
-      sapAiResourceGroup: "default",
-      githubApiUrl: "https://api.github.com",
-      githubServerUrl: "https://github.com",
-      loadInputs: jest.fn(),
-    }
-  : configInstance!;
+export default config;

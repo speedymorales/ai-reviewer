@@ -1,44 +1,49 @@
-import { parseFileDiff, generateFileCodeDiff, FileDiff, File } from '../diff';
+import assert from "node:assert/strict";
+import { describe, test } from "node:test";
+import { generateFileCodeDiff, parseFileDiff } from "../diff";
+import type { File } from "../diff";
+import { ReviewCommentThread } from "../comments";
 
-describe('Diff Parser', () => {
+describe("Diff Parser", () => {
   const mockFile: File = {
-    filename: 'src/test.ts',
-    status: 'modified',
-    patch: '@@ -1,5 +1,6 @@\n import { something } from \'somewhere\';\n \n-function oldFunction() {\n+function newFunction() {\n+  // Added comment\n   return true;\n }\n'
+    filename: "src/test.ts",
+    status: "modified",
+    patch:
+      "@@ -1,5 +1,6 @@\n import { something } from 'somewhere';\n \n-function oldFunction() {\n+function newFunction() {\n+  // Added comment\n   return true;\n }\n",
   };
 
-  const mockCommentThreads = [];
+  const mockCommentThreads: ReviewCommentThread[] = [];
 
-  test('parseFileDiff correctly parses hunks', () => {
+  test("parseFileDiff correctly parses hunks", () => {
     const fileDiff = parseFileDiff(mockFile, mockCommentThreads);
-    
-    expect(fileDiff.hunks.length).toBe(1);
-    expect(fileDiff.hunks[0].startLine).toBe(1);
-    expect(fileDiff.hunks[0].endLine).toBe(8);
-    expect(fileDiff.hunks[0].diff).toContain('@@ -1,5 +1,6 @@');
-    expect(fileDiff.hunks[0].diff).toContain('+function newFunction() {');
-    expect(fileDiff.hunks[0].diff).toContain('-function oldFunction() {');
+
+    assert.equal(fileDiff.hunks.length, 1);
+    assert.equal(fileDiff.hunks[0].startLine, 1);
+    assert.equal(fileDiff.hunks[0].endLine, 8);
+    assert.match(fileDiff.hunks[0].diff, /@@ -1,5 \+1,6 @@/);
+    assert.match(fileDiff.hunks[0].diff, /\+function newFunction\(\) \{/);
+    assert.match(fileDiff.hunks[0].diff, /-function oldFunction\(\) \{/);
   });
 
-  test('generateFileCodeDiff formats diff correctly', () => {
+  test("generateFileCodeDiff formats diff correctly", () => {
     const fileDiff = parseFileDiff(mockFile, mockCommentThreads);
     const formattedDiff = generateFileCodeDiff(fileDiff);
-    
-    expect(formattedDiff).toContain("## File modified: 'src/test.ts'");
-    expect(formattedDiff).toContain("__new hunk__");
-    expect(formattedDiff).toContain("__old hunk__");
+
+    assert.match(formattedDiff, /## File modified: 'src\/test.ts'/);
+    assert.match(formattedDiff, /__new hunk__/);
+    assert.match(formattedDiff, /__old hunk__/);
   });
 
-  test('handles files without patches', () => {
+  test("handles files without patches", () => {
     const fileWithoutPatch: File = {
-      filename: 'src/binary.png',
-      status: 'added'
+      filename: "src/binary.png",
+      status: "added",
     };
-    
+
     const fileDiff = parseFileDiff(fileWithoutPatch, mockCommentThreads);
-    expect(fileDiff.hunks.length).toBe(0);
-    
+    assert.equal(fileDiff.hunks.length, 0);
+
     const formattedDiff = generateFileCodeDiff(fileDiff);
-    expect(formattedDiff).toContain("## File added: 'src/binary.png'");
+    assert.match(formattedDiff, /## File added: 'src\/binary.png'/);
   });
-}); 
+});

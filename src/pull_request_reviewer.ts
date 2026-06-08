@@ -112,7 +112,7 @@ export async function doPullRequestReview(context: Context, pullRequestNumber: n
       commitsToReview,
       filesToReview
     );
-    info(`DRY-RUN: would ${overviewComment ? 'update' : 'create'} overview loading comment`);
+    info(`DRY-RUN: would ${overviewComment ? "update" : "create"} overview loading comment`);
     console.log(body);
   } else if (overviewComment) {
     await octokit.rest.issues.updateComment({
@@ -170,7 +170,7 @@ export async function doPullRequestReview(context: Context, pullRequestNumber: n
   // Update overview comment with the PR overview
   const walkthroughBody = buildOverviewMessage(
     summary,
-    commits.map((c: any) => c.sha)
+    commits.map((c) => c.sha)
   );
   if (IS_DRY_RUN) {
     info(`DRY-RUN: would update overview comment with walkthrough`);
@@ -196,14 +196,14 @@ export async function doPullRequestReview(context: Context, pullRequestNumber: n
 
   // Post review comments
   const comments = review.comments.filter(
-    (c) => c.content.trim() !== "" && files.some((f: any) => f.filename === c.file)
+    (c) => c.content.trim() !== "" && files.some((f) => f.filename === c.file)
   );
 
   if (IS_DRY_RUN) {
     info(`DRY-RUN: would submit review with ${comments.length} inline comments`);
     const finalBody = buildOverviewMessage(
       summary,
-      commits.map((c: any) => c.sha)
+      commits.map((c) => c.sha)
     );
     console.log('=== Final Overview (dry-run) ===');
     console.log(finalBody);
@@ -277,8 +277,8 @@ async function submitReview(
   }
 
   // Handle line comments
-  let lineComments = [];
-  let skippedComments = [];
+  const lineComments: AIComment[] = [];
+  const skippedComments: AIComment[] = [];
   for (const comment of comments) {
     if (comment.critical || comment.label === "typo") {
       lineComments.push(comment);
@@ -289,7 +289,7 @@ async function submitReview(
 
   // Try to submit all comments at once
   try {
-    let commentsData = lineComments.map((c) => ({
+    const commentsData = lineComments.map((c) => ({
       path: c.file,
       body: buildComment(c.content),
       line: c.end_line,

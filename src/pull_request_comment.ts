@@ -60,7 +60,7 @@ export async function handlePullRequestComment() {
     ...context.repo,
     pull_number: pull_request.number,
   });
-  let fileDiffs = files.map((file) => parseFileDiff(file, []));
+  const fileDiffs = files.map((file) => parseFileDiff(file, []));
 
   // Find the file that the comment is in
   const commentFileDiff = fileDiffs.find(

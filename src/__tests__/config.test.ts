@@ -1,165 +1,169 @@
-import { Config } from '../config';
-import * as core from '@actions/core';
+import assert from "node:assert/strict";
+import { after, before, beforeEach, describe, mock, test } from "node:test";
 
-// Create manual mocks for core functions
-const mockGetInput = jest.fn().mockImplementation(() => '');
-const mockGetMultilineInput = jest.fn().mockImplementation(() => []);
+const mockGetInput = mock.fn<(name: string) => string>(() => "");
+const mockGetMultilineInput = mock.fn<(name: string) => string[]>(() => []);
+const mockInfo = mock.fn<(...args: unknown[]) => void>();
+const mockWarning = mock.fn<(...args: unknown[]) => void>();
 
-// Mock the entire module
-jest.mock('@actions/core', () => ({
-  getInput: (...args: any[]) => mockGetInput(...args),
-  getMultilineInput: (...args: any[]) => mockGetMultilineInput(...args),
-  info: jest.fn(),
-  warning: jest.fn()
-}));
+let Config: typeof import("../config").Config;
 
-describe('Config', () => {
+describe("Config", () => {
   const originalEnv = process.env;
 
-  beforeEach(() => {
-    // Reset all mocks
-    jest.clearAllMocks();
-    mockGetInput.mockImplementation(() => '');
-    mockGetMultilineInput.mockImplementation(() => []);
+  before(async () => {
+    const actionsCoreMock = {
+      exports: {
+        getInput: mockGetInput,
+        getMultilineInput: mockGetMultilineInput,
+        info: mockInfo,
+        warning: mockWarning,
+      },
+    } as unknown as Parameters<typeof mock.module>[1];
 
-    // Reset environment
+    mock.module("@actions/core", actionsCoreMock);
+
+    ({ Config } = await import("../config"));
+  });
+
+  beforeEach(() => {
+    mockGetInput.mock.resetCalls();
+    mockGetInput.mock.mockImplementation(() => "");
+    mockGetMultilineInput.mock.resetCalls();
+    mockGetMultilineInput.mock.mockImplementation(() => []);
+    mockInfo.mock.resetCalls();
+    mockWarning.mock.resetCalls();
     process.env = { ...originalEnv };
   });
 
-  afterAll(() => {
+  after(() => {
     process.env = originalEnv;
   });
 
-  test('throws error when GITHUB_TOKEN is not set', () => {
-    process.env.GITHUB_TOKEN = '';
-    process.env.LLM_API_KEY = 'test-api-key';
-    process.env.LLM_MODEL = 'test-model';
+  test("throws error when GITHUB_TOKEN is not set", () => {
+    process.env.GITHUB_TOKEN = "";
+    process.env.LLM_API_KEY = "test-api-key";
+    process.env.LLM_MODEL = "test-model";
 
-    expect(() => new Config()).toThrow('GITHUB_TOKEN is not set');
+    assert.throws(() => new Config(), /GITHUB_TOKEN is not set/);
   });
 
-  test('throws error when LLM_API_KEY is not set', () => {
-    process.env.GITHUB_TOKEN = 'test-token';
-    process.env.LLM_API_KEY = '';
-    process.env.LLM_MODEL = 'test-model';
+  test("throws error when LLM_API_KEY is not set", () => {
+    process.env.GITHUB_TOKEN = "test-token";
+    process.env.LLM_API_KEY = "";
+    process.env.LLM_MODEL = "test-model";
 
-    expect(() => new Config()).toThrow('LLM_API_KEY is not set');
+    assert.throws(() => new Config(), /LLM_API_KEY is not set/);
   });
 
-  test('throws error when LLM_MODEL is not set', () => {
-    process.env.GITHUB_TOKEN = 'test-token';
-    process.env.LLM_API_KEY = 'test-api-key';
-    process.env.LLM_MODEL = '';
+  test("throws error when LLM_MODEL is not set", () => {
+    process.env.GITHUB_TOKEN = "test-token";
+    process.env.LLM_API_KEY = "test-api-key";
+    process.env.LLM_MODEL = "";
 
-    expect(() => new Config()).toThrow('LLM_MODEL is not set');
+    assert.throws(() => new Config(), /LLM_MODEL is not set/);
   });
 
-  test('loads style guide rules from action inputs', () => {
-    process.env.GITHUB_TOKEN = 'test-token';
-    process.env.LLM_API_KEY = 'test-api-key';
-    process.env.LLM_MODEL = 'test-model';
-    process.env.DEBUG = '';
+  test("loads style guide rules from action inputs", () => {
+    process.env.GITHUB_TOKEN = "test-token";
+    process.env.LLM_API_KEY = "test-api-key";
+    process.env.LLM_MODEL = "test-model";
+    process.env.DEBUG = "";
 
-    const styleGuideRules = ['Rule 1', 'Rule 2', 'Rule 3'];
-    mockGetMultilineInput.mockImplementation((name) => {
-      if (name === 'style_guide_rules') return styleGuideRules;
+    const styleGuideRules = ["Rule 1", "Rule 2", "Rule 3"];
+    mockGetMultilineInput.mock.mockImplementation((name: string) => {
+      if (name === "style_guide_rules") {
+        return styleGuideRules;
+      }
       return [];
     });
 
     const config = new Config();
     config.loadInputs();
 
-    expect(config.styleGuideRules).toBe(styleGuideRules.join('\n'));
+    assert.equal(config.styleGuideRules, styleGuideRules.join("\n"));
   });
 
-  test('uses default GitHub URLs when not provided', () => {
-    process.env.GITHUB_TOKEN = 'test-token';
-    process.env.LLM_API_KEY = 'test-api-key';
-    process.env.LLM_MODEL = 'test-model';
+  test("uses default GitHub URLs when not provided", () => {
+    process.env.GITHUB_TOKEN = "test-token";
+    process.env.LLM_API_KEY = "test-api-key";
+    process.env.LLM_MODEL = "test-model";
 
     const config = new Config();
 
-    expect(config.githubApiUrl).toBe('https://api.github.com');
-    expect(config.githubServerUrl).toBe('https://github.com');
+    assert.equal(config.githubApiUrl, "https://api.github.com");
+    assert.equal(config.githubServerUrl, "https://github.com");
   });
 
-  test('loads GitHub Enterprise Server URLs from environment variables', () => {
-    process.env.GITHUB_TOKEN = 'test-token';
-    process.env.LLM_API_KEY = 'test-api-key';
-    process.env.LLM_MODEL = 'test-model';
-    process.env.GITHUB_API_URL = 'https://github.example.com/api/v3';
-    process.env.GITHUB_SERVER_URL = 'https://github.example.com';
+  test("loads GitHub Enterprise Server URLs from environment variables", () => {
+    process.env.GITHUB_TOKEN = "test-token";
+    process.env.LLM_API_KEY = "test-api-key";
+    process.env.LLM_MODEL = "test-model";
+    process.env.GITHUB_API_URL = "https://github.example.com/api/v3";
+    process.env.GITHUB_SERVER_URL = "https://github.example.com";
 
     const config = new Config();
 
-    expect(config.githubApiUrl).toBe('https://github.example.com/api/v3');
-    expect(config.githubServerUrl).toBe('https://github.example.com');
+    assert.equal(config.githubApiUrl, "https://github.example.com/api/v3");
+    assert.equal(config.githubServerUrl, "https://github.example.com");
   });
 
-  test('loads GitHub Enterprise Server URLs from action inputs', () => {
-    process.env.GITHUB_TOKEN = 'test-token';
-    process.env.LLM_API_KEY = 'test-api-key';
-    process.env.LLM_MODEL = 'test-model';
+  test("loads GitHub Enterprise Server URLs from action inputs", () => {
+    process.env.GITHUB_TOKEN = "test-token";
+    process.env.LLM_API_KEY = "test-api-key";
+    process.env.LLM_MODEL = "test-model";
 
-    mockGetInput.mockImplementation((name) => {
-      if (name === 'github_api_url') return 'https://github.example.com/api/v3';
-      if (name === 'github_server_url') return 'https://github.example.com';
-      return '';
+    mockGetInput.mock.mockImplementation((name: string) => {
+      if (name === "github_api_url") {
+        return "https://github.example.com/api/v3";
+      }
+      if (name === "github_server_url") {
+        return "https://github.example.com";
+      }
+      return "";
     });
 
     const config = new Config();
 
-    expect(config.githubApiUrl).toBe('https://github.example.com/api/v3');
-    expect(config.githubServerUrl).toBe('https://github.example.com');
+    assert.equal(config.githubApiUrl, "https://github.example.com/api/v3");
+    assert.equal(config.githubServerUrl, "https://github.example.com");
   });
 
-  //   test('skips loading inputs when DEBUG is set', () => {
-  //     process.env.GITHUB_TOKEN = 'test-token';
-  //     process.env.LLM_API_KEY = 'test-api-key';
-  //     process.env.LLM_MODEL = 'test-model';
-  //     process.env.DEBUG = 'true';
-  //     process.env.STYLE_GUIDE_RULES = 'Debug rule';
-
-  //     const config = new Config();
-  //     config.loadInputs();
-
-  //     expect(config.styleGuideRules).toBe('Debug rule');
-  //     expect(core.getMultilineInput).not.toHaveBeenCalled();
-  //   });
-
-  test('loads LLM_BASE_URL from environment variable', () => {
-    process.env.GITHUB_TOKEN = 'test-token';
-    process.env.LLM_API_KEY = 'test-api-key';
-    process.env.LLM_MODEL = 'test-model';
-    process.env.LLM_BASE_URL = 'https://openrouter.ai/api/v1';
+  test("loads LLM_BASE_URL from environment variable", () => {
+    process.env.GITHUB_TOKEN = "test-token";
+    process.env.LLM_API_KEY = "test-api-key";
+    process.env.LLM_MODEL = "test-model";
+    process.env.LLM_BASE_URL = "https://openrouter.ai/api/v1";
 
     const config = new Config();
 
-    expect(config.llmBaseUrl).toBe('https://openrouter.ai/api/v1');
+    assert.equal(config.llmBaseUrl, "https://openrouter.ai/api/v1");
   });
 
-  test('llmBaseUrl is undefined when not set', () => {
-    process.env.GITHUB_TOKEN = 'test-token';
-    process.env.LLM_API_KEY = 'test-api-key';
-    process.env.LLM_MODEL = 'test-model';
+  test("llmBaseUrl is undefined when not set", () => {
+    process.env.GITHUB_TOKEN = "test-token";
+    process.env.LLM_API_KEY = "test-api-key";
+    process.env.LLM_MODEL = "test-model";
 
     const config = new Config();
 
-    expect(config.llmBaseUrl).toBeUndefined();
+    assert.equal(config.llmBaseUrl, undefined);
   });
 
-  test('loads LLM_BASE_URL from action input', () => {
-    process.env.GITHUB_TOKEN = 'test-token';
-    process.env.LLM_API_KEY = 'test-api-key';
-    process.env.LLM_MODEL = 'test-model';
+  test("loads LLM_BASE_URL from action input", () => {
+    process.env.GITHUB_TOKEN = "test-token";
+    process.env.LLM_API_KEY = "test-api-key";
+    process.env.LLM_MODEL = "test-model";
 
-    mockGetInput.mockImplementation((name) => {
-      if (name === 'llm_base_url') return 'https://anyscale.com/api/v1';
-      return '';
+    mockGetInput.mock.mockImplementation((name: string) => {
+      if (name === "llm_base_url") {
+        return "https://anyscale.com/api/v1";
+      }
+      return "";
     });
 
     const config = new Config();
 
-    expect(config.llmBaseUrl).toBe('https://anyscale.com/api/v1');
+    assert.equal(config.llmBaseUrl, "https://anyscale.com/api/v1");
   });
 });
