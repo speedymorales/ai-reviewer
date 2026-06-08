@@ -1,6 +1,7 @@
 import { info, warning } from "@actions/core";
 import { loadContext } from "./context";
 import {
+  hasTriggeringCommand,
   isOwnComment,
 } from "./comments";
 import { doPullRequestReview } from "./pull_request_reviewer";
@@ -31,6 +32,10 @@ export async function handleIssueComments() {
   }
   if (isOwnComment(comment.body)) {
     info("ignoring own comments");
+    return;
+  }
+  if (!hasTriggeringCommand(comment.body)) {
+    info("ignoring comment without triggering command");
     return;
   }
 

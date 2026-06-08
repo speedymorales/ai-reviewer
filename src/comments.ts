@@ -99,3 +99,8 @@ export function isOwnComment(comment: string): boolean {
 export function buildComment(comment: string): string {
   return comment + "\n\n" + COMMENT_SIGNATURE;
 }
+
+export function hasTriggeringCommand(comment: string): boolean {
+  return comment.startsWith("/review") ||
+    comment.startsWith("/ai-review");
+}
