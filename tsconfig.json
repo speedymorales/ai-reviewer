@@ -5,7 +5,6 @@
     "module": "esnext",
     "moduleResolution": "bundler",
     "rootDir": "./",
-    "baseUrl": "./",
     "sourceMap": true,
     "outDir": "./dist",
     "noImplicitAny": true,
