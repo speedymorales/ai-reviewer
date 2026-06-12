@@ -1,23 +1,28 @@
 import { info, warning } from "@actions/core";
+import { Context } from "@actions/github/lib/context";
+import { Octokit } from "@octokit/action";
+import { buildComment, listPullRequestCommentThreads } from "./comments";
 import config from "./config";
-import { initOctokit } from "./octokit";
-import { runSummaryPrompt, AIComment, runReviewPrompt } from "./prompts";
+import { FileDiff, parseFileDiff } from "./diff";
 import {
   buildLoadingMessage,
-  buildReviewSummary,
   buildOverviewMessage,
+  buildReviewSummary,
   OVERVIEW_MESSAGE_SIGNATURE,
   PAYLOAD_TAG_CLOSE,
   PAYLOAD_TAG_OPEN,
 } from "./messages";
-import { FileDiff, parseFileDiff } from "./diff";
-import { Octokit } from "@octokit/action";
-import { Context } from "@actions/github/lib/context";
-import { buildComment, listPullRequestCommentThreads } from "./comments";
+import { initOctokit } from "./octokit";
+import { AIComment, runReviewPrompt, runSummaryPrompt } from "./prompts";
 
-const IS_DRY_RUN = process.env.DRY_RUN === "1" || process.env.DRY_RUN === "true";
+const IS_DRY_RUN =
+  process.env.DRY_RUN === "1" || process.env.DRY_RUN === "true";
 
-export async function doPullRequestReview(context: Context, pullRequestNumber: number) {
+export async function doPullRequestReview(
+  context: Context,
+  pullRequestNumber: number,
+  forceFullReview?: boolean,
+) {
   const octokit = initOctokit(config.githubToken, config.githubApiUrl);
 
   // Get commit messages
@@ -33,16 +38,16 @@ export async function doPullRequestReview(context: Context, pullRequestNumber: n
     issue_number: pullRequestNumber,
   });
   let overviewComment = existingComments.find((comment) =>
-    comment.body?.includes(OVERVIEW_MESSAGE_SIGNATURE)
+    comment.body?.includes(OVERVIEW_MESSAGE_SIGNATURE),
   );
-  const isIncrementalReview = !!overviewComment;
+  const isIncrementalReview = !forceFullReview && !!overviewComment;
 
   // Maybe fetch review comments
   const reviewCommentThreads = isIncrementalReview
     ? await listPullRequestCommentThreads(octokit, {
-      ...context.repo,
-      pull_number: pullRequestNumber,
-    })
+        ...context.repo,
+        pull_number: pullRequestNumber,
+      })
     : [];
 
   const pullRequest = await octokit.rest.pulls.get({
@@ -56,7 +61,7 @@ export async function doPullRequestReview(context: Context, pullRequestNumber: n
     pull_number: pullRequestNumber,
   });
   let filesToReview = files.map((file) =>
-    parseFileDiff(file, reviewCommentThreads)
+    parseFileDiff(file, reviewCommentThreads),
   );
   info(`successfully fetched file diffs`);
 
@@ -68,7 +73,7 @@ export async function doPullRequestReview(context: Context, pullRequestNumber: n
       const payload = JSON.parse(
         overviewComment.body
           ?.split(PAYLOAD_TAG_OPEN)[1]
-          .split(PAYLOAD_TAG_CLOSE)[0] || "{}"
+          .split(PAYLOAD_TAG_CLOSE)[0] || "{}",
       );
       commitsReviewed = payload.commits;
     } catch (error) {
@@ -83,15 +88,15 @@ export async function doPullRequestReview(context: Context, pullRequestNumber: n
     const incrementalDiff =
       lastCommitReviewed && lastCommitReviewed != pullRequest.data.head.sha
         ? await octokit.rest.repos.compareCommits({
-          ...context.repo,
-          base: lastCommitReviewed,
-          head: pullRequest.data.head.sha,
-        })
+            ...context.repo,
+            base: lastCommitReviewed,
+            head: pullRequest.data.head.sha,
+          })
         : null;
     if (incrementalDiff?.data?.files) {
       // If incremental review, only consider files that were modified within incremental change.
       filesToReview = filesToReview.filter((f) =>
-        incrementalDiff.data.files?.some((f2) => f2.filename === f.filename)
+        incrementalDiff.data.files?.some((f2) => f2.filename === f.filename),
       );
     }
   } else {
@@ -108,11 +113,13 @@ export async function doPullRequestReview(context: Context, pullRequestNumber: n
 
   if (IS_DRY_RUN) {
     const body = buildLoadingMessage(
-      (lastCommitReviewed ?? pullRequest.data.base.sha),
+      lastCommitReviewed ?? pullRequest.data.base.sha,
       commitsToReview,
-      filesToReview
+      filesToReview,
     );
-    info(`DRY-RUN: would ${overviewComment ? "update" : "create"} overview loading comment`);
+    info(
+      `DRY-RUN: would ${overviewComment ? "update" : "create"} overview loading comment`,
+    );
     console.log(body);
   } else if (overviewComment) {
     await octokit.rest.issues.updateComment({
@@ -121,7 +128,7 @@ export async function doPullRequestReview(context: Context, pullRequestNumber: n
       body: buildLoadingMessage(
         lastCommitReviewed ?? pullRequest.data.base.sha,
         commitsToReview,
-        filesToReview
+        filesToReview,
       ),
     });
     info(`updated existing overview comment`);
@@ -133,7 +140,7 @@ export async function doPullRequestReview(context: Context, pullRequestNumber: n
         body: buildLoadingMessage(
           pullRequest.data.base.sha,
           commitsToReview,
-          filesToReview
+          filesToReview,
         ),
       })
     ).data;
@@ -170,7 +177,7 @@ export async function doPullRequestReview(context: Context, pullRequestNumber: n
   // Update overview comment with the PR overview
   const walkthroughBody = buildOverviewMessage(
     summary,
-    commits.map((c) => c.sha)
+    commits.map((c) => c.sha),
   );
   if (IS_DRY_RUN) {
     info(`DRY-RUN: would update overview comment with walkthrough`);
@@ -196,22 +203,29 @@ export async function doPullRequestReview(context: Context, pullRequestNumber: n
 
   // Post review comments
   const comments = review.comments.filter(
-    (c) => c.content.trim() !== "" && files.some((f) => f.filename === c.file)
+    (c) => c.content.trim() !== "" && files.some((f) => f.filename === c.file),
   );
 
   if (IS_DRY_RUN) {
-    info(`DRY-RUN: would submit review with ${comments.length} inline comments`);
+    info(
+      `DRY-RUN: would submit review with ${comments.length} inline comments`,
+    );
     const finalBody = buildOverviewMessage(
       summary,
-      commits.map((c) => c.sha)
+      commits.map((c) => c.sha),
     );
-    console.log('=== Final Overview (dry-run) ===');
+    console.log("=== Final Overview (dry-run) ===");
     console.log(finalBody);
     if (comments.length) {
-      console.log('=== Inline Comments (dry-run) ===');
+      console.log("=== Inline Comments (dry-run) ===");
       for (const c of comments) {
-        const range = c.start_line && c.end_line ? `${c.start_line}-${c.end_line}` : `${c.end_line ?? ''}`;
-        console.log(`• ${c.file}:${range} ${c.label ? '[' + c.label + '] ' : ''}${c.critical ? '(critical) ' : ''}\n${c.content}\n`);
+        const range =
+          c.start_line && c.end_line
+            ? `${c.start_line}-${c.end_line}`
+            : `${c.end_line ?? ""}`;
+        console.log(
+          `• ${c.file}:${range} ${c.label ? "[" + c.label + "] " : ""}${c.critical ? "(critical) " : ""}\n${c.content}\n`,
+        );
       }
     }
     return;
@@ -226,7 +240,7 @@ export async function doPullRequestReview(context: Context, pullRequestNumber: n
     },
     comments,
     commitsToReview,
-    filesToReview
+    filesToReview,
   );
   info(`posted review comments`);
 }
@@ -245,12 +259,12 @@ async function submitReview(
       message: string;
     };
   }[],
-  files: FileDiff[]
+  files: FileDiff[],
 ) {
   const submitInlineComment = async (
     file: string,
     line: number,
-    content: string
+    content: string,
   ) => {
     await octokit.pulls.createReviewComment({
       ...context.repo,
@@ -266,7 +280,7 @@ async function submitReview(
   const fileComments = comments.filter((c) => !c.end_line);
   if (fileComments.length > 0) {
     const responses = await Promise.allSettled(
-      fileComments.map((c) => submitInlineComment(c.file, -1, c.content))
+      fileComments.map((c) => submitInlineComment(c.file, -1, c.content)),
     );
 
     for (const response of responses) {
@@ -317,7 +331,7 @@ async function submitReview(
         files,
         commits,
         lineComments,
-        skippedComments
+        skippedComments,
       ),
     });
   } catch (error) {
@@ -327,8 +341,8 @@ async function submitReview(
     info("trying to submit comments one by one");
     await Promise.allSettled(
       lineComments.map((c) =>
-        submitInlineComment(c.file, c.end_line, c.content)
-      )
+        submitInlineComment(c.file, c.end_line, c.content),
+      ),
     );
   }
 }

@@ -59,5 +59,6 @@ export async function handleIssueComments() {
     info(`[dry-run] Would add rocket reaction to comment ${comment.id}`);
   }
 
-  await doPullRequestReview(context, issue.number);
+  const forceFullReview = comment.body?.includes("--full") ?? false;
+  await doPullRequestReview(context, issue.number, forceFullReview);
 }
