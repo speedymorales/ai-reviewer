@@ -67,7 +67,7 @@ export async function doPullRequestReview(
 
   let commitsReviewed: string[] = [];
   let lastCommitReviewed: string | null = null;
-  if (overviewComment) {
+  if (isIncrementalReview && overviewComment) {
     info(`running incremental review`);
     try {
       const payload = JSON.parse(

@@ -112,13 +112,13 @@ The action requires:
 To use OpenRouter or other OpenAI-compatible providers with the `ai-sdk` provider, add the `LLM_BASE_URL` environment variable:
 
 ```yaml
-      - uses: presubmit/ai-reviewer@latest
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-          LLM_MODEL: "openai/gpt-4o-mini"
-          LLM_PROVIDER: "ai-sdk"
-          LLM_BASE_URL: "https://openrouter.ai/api/v1"
+- uses: presubmit/ai-reviewer@latest
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+    LLM_MODEL: "openai/gpt-4o-mini"
+    LLM_PROVIDER: "ai-sdk"
+    LLM_BASE_URL: "https://openrouter.ai/api/v1"
 ```
 
 **Note**: This configuration only works with `LLM_PROVIDER=ai-sdk`. It supports any OpenAI-compatible API including OpenRouter, Anyscale, Together AI, and others. The `sap-ai-sdk` provider uses its own `SAP_AI_CORE_BASE_URL` configuration instead.
@@ -128,19 +128,19 @@ To use OpenRouter or other OpenAI-compatible providers with the `ai-sdk` provide
 If you're using GitHub Enterprise Server, you can configure the action to work with your instance by adding these environment variables:
 
 ```yaml
-      - uses: presubmit/ai-reviewer@latest
-        env:
-          GITHUB_API_URL: "https://github.example.com/api/v3"
-          GITHUB_SERVER_URL: "https://github.example.com"
+- uses: presubmit/ai-reviewer@latest
+  env:
+    GITHUB_API_URL: "https://github.example.com/api/v3"
+    GITHUB_SERVER_URL: "https://github.example.com"
 ```
 
 You can also configure these settings using input parameters:
 
 ```yaml
-      - uses: presubmit/ai-reviewer@latest
-        with:
-          github_api_url: "https://github.example.com/api/v3"
-          github_server_url: "https://github.example.com"
+- uses: presubmit/ai-reviewer@latest
+  with:
+    github_api_url: "https://github.example.com/api/v3"
+    github_server_url: "https://github.example.com"
 ```
 
 Make sure to replace `https://github.example.com` with your actual GitHub Enterprise Server URL.
@@ -198,37 +198,42 @@ Run the reviewer locally against real PRs using your GitHub authentication.
 ### Build
 
 ```bash
-pnpm install
-pnpm build
+npm run install
+npm run build
 ```
 
 ### Commands
 
 **List PRs:**
+
 ```bash
-pnpm review -- --list-prs --state open --limit 5
+npm run review -- --list-prs --state open --limit 5
 ```
 
 **Review a PR (dry-run):**
+
 ```bash
-pnpm review -- --pr 123 --dry-run
+npm run review -- --pr 123 --dry-run
 ```
 
 **Save output to file:**
+
 ```bash
 # Auto-generates filename: dry/pr-123.txt
-pnpm review -- --pr 123 --dry-run --out
+npm run review -- --pr 123 --dry-run --out
 
 # Custom output path
-pnpm review -- --pr 123 --dry-run --out my-review.txt
+npm run review -- --pr 123 --dry-run --out my-review.txt
 ```
 
 **Specify repository:**
+
 ```bash
-pnpm review -- --pr 123 --owner myorg --repo myrepo --dry-run
+npm run review -- --pr 123 --owner myorg --repo myrepo --dry-run
 ```
 
 Or set in `.env`:
+
 ```env
 GITHUB_REPOSITORY=myorg/myrepo
 ```

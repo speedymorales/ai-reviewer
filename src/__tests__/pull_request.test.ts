@@ -58,6 +58,7 @@ describe("Pull Request Handler", () => {
     ({ handlePullRequest } = await import("../pull_request.ts"));
   });
   beforeEach(() => {
+    delete process.env.FULL_REVIEW;
     mockInfo.mock.resetCalls();
     mockWarning.mock.resetCalls();
     mockLoadContext.mock.resetCalls();
@@ -100,6 +101,16 @@ describe("Pull Request Handler", () => {
     assert.equal(mockDoPullRequestReview.mock.callCount(), 1);
     assert.equal(mockDoPullRequestReview.mock.calls[0].arguments[0], context);
     assert.equal(mockDoPullRequestReview.mock.calls[0].arguments[1], 123);
+    assert.equal(mockDoPullRequestReview.mock.calls[0].arguments[2], false);
+  });
+
+  test("forces a full review when FULL_REVIEW is set", async () => {
+    process.env.FULL_REVIEW = "1";
+
+    await handlePullRequest();
+
+    assert.equal(mockDoPullRequestReview.mock.callCount(), 1);
+    assert.equal(mockDoPullRequestReview.mock.calls[0].arguments[2], true);
   });
 
   test("ignores pull request with skip marker", async () => {

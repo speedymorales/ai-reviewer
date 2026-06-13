@@ -1,6 +1,7 @@
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 // Lazy import pull_request after token resolution to avoid config init before token is set
 import { initOctokit } from './octokit';
@@ -65,7 +66,8 @@ async function reviewPR(
   dryRun: boolean, 
   owner: string, 
   repo: string, 
-  out?: string | boolean
+  out?: string | boolean,
+  full?: boolean
 ) {
   // Ensure token is available for loadDebugContext
   resolveGitHubToken();
@@ -79,6 +81,10 @@ async function reviewPR(
   
   if (dryRun) {
     process.env.DRY_RUN = '1';
+  }
+
+  if (full) {
+    process.env.FULL_REVIEW = '1';
   }
 
   // Optional: capture stdout/stderr to file
@@ -158,6 +164,8 @@ function parseArgs(argv: string[]) {
       } else {
         args.out = true;
       }
+    } else if (a === '--full') {
+      args.full = true;
     } else {
       args._.push(a);
     }
@@ -182,19 +190,20 @@ export async function main() {
   }
   
   if (args.pr) {
-    await reviewPR(args.pr, !!args.dryRun, owner, repo, args.out);
+    await reviewPR(args.pr, !!args.dryRun, owner, repo, args.out, !!args.full);
     return;
   }
   
   console.log(`Usage:
   review --list-prs [--owner <owner>] [--repo <repo>] [--state open|closed|all] [--limit N]
-  review --pr <number> [--owner <owner>] [--repo <repo>] [--dry-run] [--out [path] | -out [path]]
+  review --pr <number> [--owner <owner>] [--repo <repo>] [--dry-run] [--full] [--out [path] | -out [path]]
 
 Examples:
   review --list-prs --owner presubmit --repo ai-reviewer
   review --pr 123 --dry-run
   review --pr 123 --dry-run --out review-output.txt
   review --pr 123 --owner myorg --repo myrepo
+  review --pr 123 --full
 
 Environment:
   Set GITHUB_REPOSITORY=owner/repo to avoid specifying --owner and --repo each time
@@ -202,7 +211,8 @@ Environment:
 `);
 }
 
-if (require.main === module) {
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+if (isMain) {
   main().catch((e) => { 
     console.error(e); 
     process.exit(1); 

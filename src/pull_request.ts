@@ -24,7 +24,9 @@ export async function handlePullRequest() {
     return;
   }
 
-  await doPullRequestReview(context, pull_request.number);
+  const forceFullReview =
+    process.env.FULL_REVIEW === "1" || process.env.FULL_REVIEW === "true";
+  await doPullRequestReview(context, pull_request.number, forceFullReview);
 
   // const octokit = initOctokit(config.githubToken, config.githubApiUrl);
 
